@@ -14,7 +14,12 @@ ReplyFunc = Callable[[str, Sequence[str], BotState.BotState], ReplyResult]
 if Config.proxy_enabled:
     from . import Proxy
 
-from . import Channel  # Config
+from . import Message  # None
+
+from . import Logger  # BotState
+logger = Logger.Logger()
+
+from . import Channel  # Config, Message
 if Config.channel_enabled:
     channel: Channel.BaseChannel = Channel.NormalChannel()
 else:
@@ -26,8 +31,12 @@ if Config.controller_enabled:
 else:
     controller: Controller.BaseController = Controller.DisabledController()
 
-from . import Telegrammer  # BotState, Constants, Channel, ReplyUtils
-telegrammer: Telegrammer.Telegrammer = Telegrammer.Telegrammer()
+from . import Telegrammer  # BotState, Constants, Channel, ReplyUtils, Message
+
+if Config.test:
+    telegrammer: Telegrammer.BaseTelegrammer = Telegrammer.TestingTelegrammer()
+else:
+    telegrammer: Telegrammer.BaseTelegrammer = Telegrammer.Telegrammer()
 
 from . import Notifier
 if Config.notify_bot:
@@ -39,7 +48,7 @@ else:
 
 from . import ReplyUtils  # telegrammer, utils, ReplyFunc, ReplyResult, WeaponsPriority, BotState, Config
 from .Configurable import Actions  # ReplyFunc, ReplyUtils, telegrammer
-from . import Room  # Constants, ReplyUtils
+from . import Room  # Constants, ReplyUtils, telegrammer
 from .Configurable import Rooms  # BotState, ReplyResult, ReplyUtils, Room
 
 from . import Bot  # Everything

@@ -3,6 +3,7 @@
 bot_state.json
 RogBotBot.log
 session.session
+tester/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -105,3 +106,5 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+/RogBotBot.db

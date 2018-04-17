@@ -1,7 +1,21 @@
-from time import sleep
+import logging
+from time import sleep, time
 from typing import Callable, Sequence, Optional, Any
 
 from Bot import telegrammer, utils, ReplyFunc, ReplyResult, WeaponsPriority, BotState, Config
+
+
+def send_action(action: Optional[ReplyFunc], text: str, replies: Sequence[str], state: BotState):
+    if action:
+        for i in action(text, replies, state):
+            if i:
+                logging.debug('Action: {}'.format(i))
+                if isinstance(i, str):
+                    telegrammer.send_msg(i)
+                else:
+                    for msg in i:
+                        telegrammer.send_msg(msg)
+    return time()
 
 
 def get_info(func: Callable[..., Any]) -> Optional[str]:
@@ -30,8 +44,7 @@ def get_reply(func: ReplyFunc, timeout=Config.retry_delay) -> ReplyFunc:
     def f(_: str, __: Sequence[str], state: BotState.BotState) -> ReplyResult:
         msg = telegrammer.get_message(timeout=timeout)
         if msg is not None:
-            replies = list(utils.parse_replies(msg.reply_markup))
-            return func(msg.message, replies, state)
+            return func(msg.text, msg.replies, state)
         return []
 
     f.__doc__ = '<$[get_reply] {}...{}>'.format(timeout, get_info(func))

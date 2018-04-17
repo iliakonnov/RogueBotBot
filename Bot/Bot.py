@@ -5,7 +5,7 @@ import os
 from time import time, sleep
 
 from Bot import BotState, ReplyFunc, telegrammer, controller, Controller, utils, Config, BuyItems, Rooms, Actions, \
-    ReplyUtils, SellItems, Constants, RoomsPriority, Room, notifier
+    ReplyUtils, SellItems, Constants, RoomsPriority, Room, notifier, logger
 
 
 def bot(state: BotState):
@@ -18,6 +18,7 @@ def bot(state: BotState):
     paused_hp = False
     paused = False
     use_sign = False
+    old_room = None
     while work:
         try:
             commands = controller.get_commands()
@@ -32,7 +33,7 @@ def bot(state: BotState):
                 continue
 
             old_room = state.current_room
-            message = telegrammer.get_message(timeout=Config.retry_delay)
+            message = telegrammer.get_message(timeout=Config.timeout)
 
             if not message:
                 if time() - last_time > Config.retry_delay:
@@ -43,9 +44,9 @@ def bot(state: BotState):
             else:
                 state.current_retries_count = 0
 
-                text = message.message
+                text = message.text
                 logging.debug('Received message: ' + text.replace('\n', '\\n'))
-                replies = list(utils.parse_replies(message.reply_markup))
+                replies = list(message.replies)
                 action = None
 
                 state.damage = utils.try_find(Constants.damage_re, text, post=int, default=state.damage)
@@ -142,7 +143,7 @@ def bot(state: BotState):
                 state.current_room = 'Распутье'
 
             print('Sending: ' + ReplyUtils.get_info(new_action))
-            last_time = telegrammer.send_action(new_action, text, replies, state)
+            last_time = ReplyUtils.send_action(new_action, text, replies, state)
             logging.info(
                 'Room: {} -> {}; HP: {}; dmg: {}; gold: {}; dice: {}'.format(
                     old_room, state.current_room, state.health, state.damage, state.gold, state.dice))
@@ -155,7 +156,9 @@ def bot(state: BotState):
             sleep(Config.crash_delay)
         with open('bot_state.json', 'w', encoding='utf-8') as f:
             json.dump(state.to_dict(), f, indent=4, ensure_ascii=False)
+        logger.log_state(state, old_room)
     telegrammer.disconnect()
+    logger.close()
 
 
 def load_inventory():
@@ -163,8 +166,8 @@ def load_inventory():
     telegrammer.send_msg("🎒 Посмотреть инвентарь")
     while True:
         message = telegrammer.get_message()
-        inventory = message.message
-        replies = utils.parse_replies(message.reply_markup)
+        inventory = message.text
+        replies = message.replies
         for i in Constants.inventory_re.finditer(inventory):
             items[i.group(1)] = int(i.group(2))
         if '▶ Дальше' in replies:

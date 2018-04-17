@@ -1,14 +1,42 @@
+import abc
+import json
 import logging
-from time import sleep, time
+import socket
+from datetime import datetime
+from time import sleep
 from typing import Sequence, Optional
 
 from telethon import TelegramClient
 from telethon.tl import types as tl_types
 
-from Bot import channel, ReplyFunc, BotState, Config
+from Bot import channel, Config, Message, Constants
 
 
-class Telegrammer(object):
+class BaseTelegrammer(object, metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def send_to(self, entity: str, content: str):
+        """Отправляет сообщение указанному entity (имя пользователя)"""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def send_msg(self, content: str):
+        """Отправляет сообщение боту"""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_message(self, timeout: Constants.Num = None) -> Optional[Message.Message]:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def disconnect(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def start(self):
+        raise NotImplementedError()
+
+
+class Telegrammer(BaseTelegrammer):
     def __init__(self):
         args = ['session', Config.api_id, Config.api_hash]
         kwargs = dict(update_workers=0)
@@ -23,21 +51,11 @@ class Telegrammer(object):
     def send_msg(self, content: str):
         msg = self.send_to(Config.bot_id, content)
         if msg:
-            channel.send_to_channel(msg)
+            channel.send_to_channel(
+                Message.Message(msg.message, [], msg.date, False)
+            )
 
-    def send_action(self, action: Optional[ReplyFunc], text: str, replies: Sequence[str], state: BotState):
-        if action:
-            for i in action(text, replies, state):
-                if i:
-                    logging.debug('Action: {}'.format(i))
-                    if isinstance(i, str):
-                        self.send_msg(i)
-                    else:
-                        for msg in i:
-                            self.send_msg(msg)
-        return time()
-
-    def get_message(self, timeout=None) -> Optional[tl_types.Message]:
+    def get_message(self, timeout: Constants.Num = None) -> Optional[Message.Message]:
         new = None
         first = True
         while first or new is not None:
@@ -48,12 +66,85 @@ class Telegrammer(object):
             if isinstance(new, tl_types.UpdateNewMessage):
                 message = new.message
                 if message.from_id == Config.bot_id and message.message:
-                    channel.send_to_channel(message)
-                    return message
+                    msg = Message.Message(message.message, self._parse_replies(message.reply_markup), message.date, True)
+                    channel.send_to_channel(msg)
+                    return msg
         return None
+
+    def _parse_replies(self, markup: tl_types.ReplyKeyboardMarkup) -> Sequence[str]:
+        if not isinstance(markup, tl_types.ReplyKeyboardMarkup):
+            return []
+        for row in markup.rows:
+            for btn in row.buttons:
+                yield btn.text
 
     def disconnect(self):
         self.client.disconnect()
 
     def start(self):
         self.client.start()
+
+
+class TestingTelegrammer(BaseTelegrammer):
+    def __init__(self):
+        """Несовместим с прокси!"""
+        self.sock: socket.socket = socket.socket()
+        self.conn: socket.socket = None
+
+    def _send(self, content: dict):
+        command = json.dumps(content, ensure_ascii=False).encode('utf-8')
+        self.conn.send(len(command).to_bytes(4, byteorder='little') + command)
+
+    def send_to(self, entity: str, content: str):
+        self._send({
+            'action': 'send',
+            'entity': entity,
+            'content': content
+        })
+        sleep(Config.message_delay)
+
+    def send_msg(self, content: str):
+        self.send_to(Config.bot_id, content)
+
+    def get_message(self, timeout: Constants.Num = None) -> Optional[Message.Message]:
+        # self.conn.settimeout(timeout)
+        try:
+            size_data = self.conn.recv(4)
+        except socket.timeout:
+            command = {'action': 'timeout'}
+        else:
+            assert size_data
+            size = int.from_bytes(size_data, byteorder='little')
+            data: bytes = self.conn.recv(size)
+            command = json.loads(data.decode('utf-8'))
+        if command['action'] == 'message':
+            result = Message.Message(command['text'], command['replies'], datetime.now(), True)
+            self._send({
+                'action': 'receive',
+                'text': result.text,
+                'replies': result.replies,
+                'date': str(result.date),
+                'from_bot': result.is_from_bot
+            })
+            return result
+        elif command['action'] == 'timeout':
+            self._send({
+                'action': 'receive',
+                'text': None,
+                'replies': None,
+                'date': None,
+                'from_bot': None
+            })
+            return None
+        raise Exception("Unknown action: {}".format(command['action']))
+
+    def disconnect(self):
+        self._send({'action': 'disconnect'})
+        self.conn.close()
+        self.sock.close()
+
+    def start(self):
+        self.sock.bind((Config.test_host, Config.test_port))
+        self.sock.listen(1)
+        self.conn, addr = self.sock.accept()
+        self._send({'action': 'connect'})
