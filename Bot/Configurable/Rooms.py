@@ -1,30 +1,30 @@
 from typing import Sequence
 
-from Bot import BotState, ReplyResult, ReplyUtils, telegrammer, Room
+from Bot import BotState, ReplyResult, ReplyUtils, telegrammer, Room, Message
 
 
-def room_human(msg: str, replies: Sequence[str], state: BotState) -> ReplyResult:
-    if 'Растеряться' in replies:  # Билл Гейтс
+def room_human(msg: Message.Message, _: BotState) -> ReplyResult:
+    if 'Растеряться' in msg.replies:  # Билл Гейтс
         yield 'Растеряться'
         telegrammer.get_message()
         for i in range(6):
             yield 'Загрузка'
             telegrammer.get_message()
         yield 'Загрузка'
-    elif 'Зайти в дверь' in replies:  # yegrof1
+    elif 'Зайти в дверь' in msg.replies:  # yegrof1
         yield 'Зайти в дверь'
         telegrammer.get_message()
         yield 'Идти дальше по коридору'
         telegrammer.get_message()
         yield 'Зайти в дверь слева'
-    elif 'Попросить лису' in replies:  # kiba
+    elif 'Попросить лису' in msg.replies:  # kiba
         yield 'Уйти'
     else:
         for var in [
             '—А... э-э... как Вы здесь оказались?',  # Хидэо Кодзима
             '—Как поживаете?'  # Гейб Ньюэл
         ]:
-            if var in replies:
+            if var in msg.replies:
                 yield var
                 break
         else:
@@ -32,8 +32,9 @@ def room_human(msg: str, replies: Sequence[str], state: BotState) -> ReplyResult
             telegrammer.get_message()
             yield 'Я... э-э... (сбежать)'
 
-def room_river(_: str, replies: Sequence[str], __: BotState) -> ReplyResult:
-    for i in replies:
+
+def room_river(msg: Message.Message, __: BotState) -> ReplyResult:
+    for i in msg.replies:
         if i.startswith('Вернуться'):
             return i
 
@@ -79,12 +80,15 @@ rooms: Sequence[Room.Room] = [
               ReplyUtils.concat(
                   ReplyUtils.dice,
                   ReplyUtils.get_reply(ReplyUtils.conditional(
-                      lambda msg, _, __: (
-                              'Что-о-о? Как ты это сделал?' in msg or 'От шока Гидеон выронил дневник из рук.' in msg
+                      lambda msg, _: (
+                              'Что-о-о? Как ты это сделал?' in msg.text
+                              or 'От шока Гидеон выронил дневник из рук.' in msg.text
                       ),
-                      ReplyUtils.set_item('Книга тайн №2', 1)
+                      ReplyUtils.concat(
+                          ReplyUtils.set_item('Книга тайн №2', 1),
+                          ReplyUtils.repeat_message
+                      )
                   )),
-                  ReplyUtils.reply("Ping"),  # Иначе основной цикл не получит сообщение =(
                   ignore_func=None
               )),
     Room.Room("Гном в красной шапке",
@@ -143,7 +147,7 @@ rooms: Sequence[Room.Room] = [
                'rooms/default/missions/main/third.py': '907941d7e85942acff6f2650a4270dd6b166f7fa',
                'rooms/vietnam/missions/main/third.py': '907941d7e85942acff6f2650a4270dd6b166f7fa'},
               ReplyUtils.conditional(
-                  lambda _, replies, __: 'Разбить' in replies,
+                  lambda msg, _: 'Разбить' in msg.replies,
                   ReplyUtils.reply("Разбить"),
                   ReplyUtils.battle
               )),
@@ -177,7 +181,7 @@ rooms: Sequence[Room.Room] = [
     Room.Room("Катапульта",
               {'rooms/default/special/stone_room.py': None,
                'rooms/vietnam/special/stone_room.py': None},
-              ReplyUtils.concat(ReplyUtils.reply("@iliago"), ReplyUtils.reply("Привет от бота!"))),
+              ReplyUtils.concat(ReplyUtils.reply("@RogBotBot"), ReplyUtils.reply("Привет от бота!"))),
     Room.Room("Книга судьбы",
               {'rooms/default/usual/destiny_book.py': 'd495dab11801dd8bc2dfc0df8044257b51fde08c'},
               ReplyUtils.go_away),

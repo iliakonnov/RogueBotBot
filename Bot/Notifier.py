@@ -1,7 +1,6 @@
 import abc
-from typing import Sequence
 
-from Bot import ReplyFunc, BotState, ReplyResult, Config
+from Bot import ReplyFunc, BotState, ReplyResult, Config, Message
 
 
 class BaseNotifier(object, metaclass=abc.ABCMeta):
@@ -12,7 +11,7 @@ class BaseNotifier(object, metaclass=abc.ABCMeta):
 
 class DisabledNotifier(BaseNotifier):
     def notify(self, content: str) -> ReplyFunc:
-        def f(_: str, __: Sequence[str], ___: BotState) -> ReplyResult:
+        def f(_: Message.Message, __: BotState) -> ReplyResult:
             return []
 
         f.__doc__ = '<#[notify] {}>'.format(content)
@@ -25,7 +24,7 @@ class EchoNotifier(BaseNotifier):
         self.telegrammer = telegrammer
 
     def notify(self, content: str) -> ReplyFunc:
-        def f(_: str, __: Sequence[str], ___: BotState) -> ReplyResult:
+        def f(_: Message.Message, __: BotState) -> ReplyResult:
             self.telegrammer.send_to(Config.echo_id, content)
             return []
 
@@ -39,7 +38,7 @@ class BotNotifier(BaseNotifier):
         self.bot = telepot.Bot(Config.bot_token)
 
     def notify(self, content: str) -> ReplyFunc:
-        def f(_: str, __: Sequence[str], ___: BotState) -> ReplyResult:
+        def f(_: Message.Message, __: BotState) -> ReplyResult:
             self.bot.sendMessage(Config.admin_id, content)
             return []
 

@@ -8,13 +8,13 @@ from .Configurable import WeaponsPriority  # None
 from .Configurable import BuyItems  # Constants
 from . import BotState  # BuyItems
 from .Configurable import SellItems  # Constants, BotState
+from . import Message  # None
 ReplyResult = Union[str, Sequence[str]]
-ReplyFunc = Callable[[str, Sequence[str], BotState.BotState], ReplyResult]
+ReplyFunc = Callable[[Message.Message, BotState.BotState], ReplyResult]
 
 if Config.proxy_enabled:
     from . import Proxy
 
-from . import Message  # None
 
 from . import Logger  # BotState
 logger = Logger.Logger()
@@ -38,7 +38,7 @@ if Config.test:
 else:
     telegrammer: Telegrammer.BaseTelegrammer = Telegrammer.Telegrammer()
 
-from . import Notifier
+from . import Notifier  # ReplyFunc, BotState, ReplyResult, Config, Message
 if Config.notify_bot:
     notifier = Notifier.BotNotifier()
 elif Config.echo_id:
@@ -49,6 +49,6 @@ else:
 from . import ReplyUtils  # telegrammer, utils, ReplyFunc, ReplyResult, WeaponsPriority, BotState, Config
 from .Configurable import Actions  # ReplyFunc, ReplyUtils, telegrammer
 from . import Room  # Constants, ReplyUtils, telegrammer
-from .Configurable import Rooms  # BotState, ReplyResult, ReplyUtils, Room
+from .Configurable import Rooms  # BotState, ReplyResult, ReplyUtils, Room, Message
 
 from . import Bot  # Everything

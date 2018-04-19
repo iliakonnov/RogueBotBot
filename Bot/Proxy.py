@@ -61,6 +61,7 @@ urllib3.connectionpool.HTTPConnectionPool.ConnectionCls = MyHTTPConnection
 
 # HTTPS
 class MyHTTPSConnection(VerifiedHTTPSConnection):
+    # noinspection PyUnresolvedReferences
     def connect(self):
         self.sock = socket.socket(socket.AF_INET)
         self.sock.connect((self.host, self.port))

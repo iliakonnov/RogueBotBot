@@ -11,8 +11,7 @@ from Bot import BotState, ReplyFunc, telegrammer, controller, Controller, utils,
 def bot(state: BotState):
     last_time = time()
     action: ReplyFunc = None
-    text = ''
-    replies = []
+    message = None
 
     work = True
     paused_hp = False
@@ -33,28 +32,29 @@ def bot(state: BotState):
                 continue
 
             old_room = state.current_room
-            message = telegrammer.get_message(timeout=Config.timeout)
+            temp_message = telegrammer.get_message(timeout=Config.timeout)
 
-            if not message:
+            if not temp_message:
                 if time() - last_time > Config.retry_delay:
                     logging.warning('Retrying last message...')
                     if state.current_retries_count == 1:
                         logging.warning(ReplyUtils.get_info(action))
                     state.current_retries_count += 1
+                else:
+                    continue
             else:
+                message = temp_message
                 state.current_retries_count = 0
 
-                text = message.text
-                logging.debug('Received message: ' + text.replace('\n', '\\n'))
-                replies = list(message.replies)
+                logging.debug('Received message: ' + message.text.replace('\n', '\\n'))
                 action = None
 
-                state.damage = utils.try_find(Constants.damage_re, text, post=int, default=state.damage)
-                state.health = utils.try_find(Constants.hp_gold_re, text, group=1, post=int, default=state.health)
-                state.dice = utils.try_find(Constants.dice_re, text, group=1, post=int, default=state.dice)
+                state.damage = utils.try_find(Constants.damage_re, message.text, post=int, default=state.damage)
+                state.health = utils.try_find(Constants.hp_gold_re, message.text, group=1, post=int, default=state.health)
+                state.dice = utils.try_find(Constants.dice_re, message.text, group=1, post=int, default=state.dice)
                 state.max_hp = max(state.health, state.max_hp)
 
-                state.gold = utils.try_find(Constants.hp_gold_re, text, group=2, post=int, default=state.gold)
+                state.gold = utils.try_find(Constants.hp_gold_re, message.text, group=2, post=int, default=state.gold)
 
                 use_sign = False
 
@@ -68,32 +68,32 @@ def bot(state: BotState):
                 elif paused_hp:
                     logging.info('All good. Continuing')
                     paused_hp = False
-                if 'Что будем делать?' in text:  # TODO: Перенести эти if'ы в Actions, если возможно
+                if 'Что будем делать?' in message.text:  # TODO: Перенести эти if'ы в Actions, если возможно
                     state.current_room_count = 0
-                    new_item = utils.try_find(Constants.item_re, text)
+                    new_item = utils.try_find(Constants.item_re, message.text)
                     if new_item is not None and new_item != 'Ничего.':
                         if new_item not in state.current_items:
                             state.current_items[new_item] = 0
                             state.current_items[new_item] += 1
 
-                    if state.health < state.max_hp * Config.hp_heal and '🙏 Молить Бога о выходе' in replies:
+                    if state.health < state.max_hp * Config.hp_heal and '🙏 Молить Бога о выходе' in message.replies:
                         action = ReplyUtils.concat(action,
                                                    ReplyUtils.reply('🙏 Молить Бога о выходе'),
                                                    ReplyUtils.reply('Аллах'))
                         state.current_room = '__бог->коридор'
-                    if state.current_room != '__алхимик' and '🛍 Зайти в Магазин алхимика' in replies:
+                    if state.current_room != '__алхимик' and '🛍 Зайти в Магазин алхимика' in message.replies:
                         action = ReplyUtils.concat(action, ReplyUtils.reply('🛍 Зайти в Магазин алхимика'))
                         state.current_room = '__алхимик'
                     else:
                         use_sign = True
                 elif state.current_room == '__алхимик' or \
-                        'Привет! Давно не виделись, смотри, что у меня есть' in text or \
-                        'У меня такого нет' in text:
+                        'Привет! Давно не виделись, смотри, что у меня есть' in message.text or \
+                        'У меня такого нет' in message.text:
                     found = False
                     for key, value in BuyItems.items.items():
                         if found:
                             continue
-                        if key in replies and state.current_items[key] < value:
+                        if key in message.replies and state.current_items[key] < value:
                             found = True
                             state.current_items[key] += 1
                             action = ReplyUtils.concat(action, ReplyUtils.reply(key))
@@ -101,7 +101,7 @@ def bot(state: BotState):
                         action = ReplyUtils.concat(action, ReplyUtils.reply('Выход'))
                     state.current_room = '__коридор'
                     use_sign = True
-                elif '🎲 Не вижу уверенности!' in text:
+                elif '🎲 Не вижу уверенности!' in message.text:
                     action = ReplyUtils.concat(action, ReplyUtils.dice)
                 else:
                     if state.health <= state.max_hp * Config.hp_battle:
@@ -111,7 +111,7 @@ def bot(state: BotState):
                         logging.warning('Too long in room, starting battle!')
                         action = ReplyUtils.concat(action, ReplyUtils.battle)
                     else:
-                        room = utils.try_find(Constants.room_re, text)
+                        room = utils.try_find(Constants.room_re, message.text)
                         if room is None:
                             room = state.current_room
                         else:
@@ -119,7 +119,7 @@ def bot(state: BotState):
                         if room == 'Распутье':
                             found = False
                             for n in RoomsPriority.rooms:
-                                if n in replies and not found:
+                                if n in message.replies and not found:
                                     action = ReplyUtils.concat(action, ReplyUtils.reply(n))
                                     state.current_room = n
                                     state.current_room_count = 0
@@ -139,11 +139,17 @@ def bot(state: BotState):
             new_action = ReplyUtils.concat(action, *Actions.actions, ignore_func=None)
 
             if use_sign:
-                new_action = ReplyUtils.concat(new_action, ReplyUtils.reply('Использовать Указатель'))
-                state.current_room = 'Распутье'
+                new_action = ReplyUtils.concat(
+                    new_action,
+                    ReplyUtils.concat(
+                        ReplyUtils.reply('Использовать Указатель'),
+                        ReplyUtils.update_state('current_room', 'Распутье'),
+                        ignore_func=None
+                    )
+                )
 
             print('Sending: ' + ReplyUtils.get_info(new_action))
-            last_time = ReplyUtils.send_action(new_action, text, replies, state)
+            last_time = ReplyUtils.send_action(new_action, message, state)
             logging.info(
                 'Room: {} -> {}; HP: {}; dmg: {}; gold: {}; dice: {}'.format(
                     old_room, state.current_room, state.health, state.damage, state.gold, state.dice))
@@ -199,6 +205,17 @@ def check_rooms(path_to_repo):
     print_rooms(added, "Новые:", lambda p: p)
 
 
+def battle(weapon):
+    telegrammer.send_msg(weapon)
+    while True:
+        msg = telegrammer.get_message()
+        for r in msg.replies:
+            if weapon in r:
+                telegrammer.send_msg(r)
+        else:
+            break
+
+
 def main():
     parser = argparse.ArgumentParser(description='Почти автоматически играет в @rog_bot.')
     parser.add_argument('-i', '--inventory', dest='inventory', action='store_true',
@@ -207,6 +224,8 @@ def main():
                         help='Продает лишние вещи. Бот должен находится в коридоре')
     parser.add_argument('-g', '--game', dest='game', action='store_true',
                         help='Запускает бота. Для запуска может потребоваться вручную отправить сообщение')
+    parser.add_argument('-b', '--battle', dest='weapon', type=str,
+                        help='Запускает битву указанным оружием.')
     parser.add_argument('--check', dest='path_to_repo', type=str,
                         help='Проверяет, не изменились ли комнаты')
     args = parser.parse_args()
@@ -220,8 +239,10 @@ def main():
     if args.path_to_repo:
         check_rooms(args.path_to_repo)
 
-    if args.inventory or args.sell or args.game:
+    if args.inventory or args.sell or args.game or args.weapon:
         telegrammer.start()
+    if args.weapon:
+        battle(args.weapon)
     if args.inventory:
         state.current_items = load_inventory()
     if args.sell:

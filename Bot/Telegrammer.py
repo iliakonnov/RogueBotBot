@@ -3,7 +3,7 @@ import json
 import logging
 import socket
 from datetime import datetime
-from time import sleep
+from time import sleep, time
 from typing import Sequence, Optional
 
 from telethon import TelegramClient
@@ -16,6 +16,11 @@ class BaseTelegrammer(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def send_to(self, entity: str, content: str):
         """Отправляет сообщение указанному entity (имя пользователя)"""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def repeat_msg(self, message: Message.Message):
+        """В следущем get_message бот вернет переданное сообщение"""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -41,12 +46,18 @@ class Telegrammer(BaseTelegrammer):
         args = ['session', Config.api_id, Config.api_hash]
         kwargs = dict(update_workers=0)
         self.client: TelegramClient = TelegramClient(*args, **kwargs)
+        self.last_time = 0
+        self.message: Message.Message = None
 
-    def send_to(self, entity: str, content: str):
+    def send_to(self, entity: str, content: str) -> tl_types.Message:
         if content:
             logging.debug('Sending {}...'.format(content))
-            sleep(Config.message_delay)
-            return self.client.send_message(entity, content)
+            delay = Config.message_delay - (time() - self.last_time)
+            if delay > 0:
+                sleep(delay)
+            res = self.client.send_message(entity, content)
+            self.last_time = time()
+            return res
 
     def send_msg(self, content: str):
         msg = self.send_to(Config.bot_id, content)
@@ -55,7 +66,15 @@ class Telegrammer(BaseTelegrammer):
                 Message.Message(msg.message, [], msg.date, False)
             )
 
+    def repeat_msg(self, message: Message.Message):
+        self.message = message
+
     def get_message(self, timeout: Constants.Num = None) -> Optional[Message.Message]:
+        if self.message:
+            result = self.message
+            self.message = None
+            return result
+
         new = None
         first = True
         while first or new is not None:
@@ -66,7 +85,12 @@ class Telegrammer(BaseTelegrammer):
             if isinstance(new, tl_types.UpdateNewMessage):
                 message = new.message
                 if message.from_id == Config.bot_id and message.message:
-                    msg = Message.Message(message.message, self._parse_replies(message.reply_markup), message.date, True)
+                    msg = Message.Message(
+                        message.message,
+                        list(self._parse_replies(message.reply_markup)),
+                        message.date,
+                        True
+                    )
                     channel.send_to_channel(msg)
                     return msg
         return None
@@ -90,6 +114,7 @@ class TestingTelegrammer(BaseTelegrammer):
         """Несовместим с прокси!"""
         self.sock: socket.socket = socket.socket()
         self.conn: socket.socket = None
+        self.message: Message.Message = None
 
     def _send(self, content: dict):
         command = json.dumps(content, ensure_ascii=False).encode('utf-8')
@@ -106,7 +131,15 @@ class TestingTelegrammer(BaseTelegrammer):
     def send_msg(self, content: str):
         self.send_to(Config.bot_id, content)
 
+    def repeat_msg(self, message: Message.Message):
+        self.message = message
+
     def get_message(self, timeout: Constants.Num = None) -> Optional[Message.Message]:
+        if self.message:
+            res = self.message
+            self.message = None
+            return res
+
         # self.conn.settimeout(timeout)
         try:
             size_data = self.conn.recv(4)

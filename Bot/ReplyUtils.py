@@ -1,13 +1,13 @@
 import logging
 from time import sleep, time
-from typing import Callable, Sequence, Optional, Any
+from typing import Callable, Optional, Any
 
-from Bot import telegrammer, utils, ReplyFunc, ReplyResult, WeaponsPriority, BotState, Config
+from Bot import telegrammer, ReplyFunc, ReplyResult, WeaponsPriority, BotState, Config, Message
 
 
-def send_action(action: Optional[ReplyFunc], text: str, replies: Sequence[str], state: BotState):
+def send_action(action: Optional[ReplyFunc], msg: Message.Message, state: BotState):
     if action:
-        for i in action(text, replies, state):
+        for i in action(msg, state):
             if i:
                 logging.debug('Action: {}'.format(i))
                 if isinstance(i, str):
@@ -39,12 +39,12 @@ def get_info(func: Callable[..., Any]) -> Optional[str]:
 
 
 def get_reply(func: ReplyFunc, timeout=Config.retry_delay) -> ReplyFunc:
-    """Возвращает резльтат func и передает ей уже новое сообщение"""
+    """Возвращает резльтат func, но передает ей уже новое сообщение"""
 
-    def f(_: str, __: Sequence[str], state: BotState.BotState) -> ReplyResult:
+    def f(_: Message.Message, state: BotState.BotState) -> ReplyResult:
         msg = telegrammer.get_message(timeout=timeout)
         if msg is not None:
-            return func(msg.text, msg.replies, state)
+            return func(msg, state)
         return []
 
     f.__doc__ = '<$[get_reply] {}...{}>'.format(timeout, get_info(func))
@@ -52,21 +52,27 @@ def get_reply(func: ReplyFunc, timeout=Config.retry_delay) -> ReplyFunc:
     return f
 
 
-def battle(_: str, replies: Sequence[str], __: BotState.BotState) -> ReplyResult:
+def repeat_message(msg: Message.Message, _: BotState.BotState) -> ReplyResult:
+    """<$[repeat]>"""
+    telegrammer.repeat_msg(msg)
+    return []
+
+
+def battle(msg: Message.Message, __: BotState.BotState) -> ReplyResult:
     """<#[battle]>"""
     """Битва с кем либо"""
-    for repl in replies:
+    for repl in msg.replies:
         for weap in WeaponsPriority.weapons:
             if repl.startswith('➰ Использовать: {}'.format(weap)):
                 return repl
-    if '👊 Ударить рукой' in replies:
+    if '👊 Ударить рукой' in msg.replies:
         return '👊 Ударить рукой'
 
 
 def reply(out: ReplyResult, delay=0) -> ReplyFunc:
     """Просто отправляет сообщение"""
 
-    def f(_: str, __: Sequence[str], ___: BotState.BotState) -> ReplyResult:
+    def f(_: Message.Message, __: BotState.BotState) -> ReplyResult:
         sleep(delay)
         return out
 
@@ -84,7 +90,7 @@ ignore = get_reply(nothing)
 def set_item(name: str, cnt: int) -> ReplyFunc:
     """Устанавливает количество предмета name в инвентаре"""
 
-    def f(_: str, __: Sequence[str], state: BotState.BotState) -> ReplyResult:
+    def f(_: Message.Message, state: BotState.BotState) -> ReplyResult:
         state.current_items[name] = cnt
         return []
 
@@ -96,7 +102,7 @@ def set_item(name: str, cnt: int) -> ReplyFunc:
 def update_state(prop: str, new_val: Any, change: bool = False) -> ReplyFunc:
     """Обновляет свойство BotState. Если change == True, то прибавляет к текущему значению new_val"""
 
-    def f(_: str, __: Sequence[str], state: BotState.BotState) -> ReplyResult:
+    def f(_: Message.Message, state: BotState.BotState) -> ReplyResult:
         if change:
             val = getattr(state, prop) + new_val
         else:
@@ -110,17 +116,17 @@ def update_state(prop: str, new_val: Any, change: bool = False) -> ReplyFunc:
 
 
 def conditional(
-        condition: Callable[[str, Sequence[str], BotState.BotState], bool],
+        condition: Callable[[Message.Message, BotState.BotState], bool],
         func: ReplyFunc = None,
         else_func: ReplyFunc = None
 ) -> ReplyFunc:
-    def f(msg: str, replies: Sequence[str], state: BotState.BotState) -> ReplyResult:
-        if condition(msg, replies, state):
+    def f(msg: Message.Message, state: BotState.BotState) -> ReplyResult:
+        if condition(msg, state):
             if func is not None:
-                return func(msg, replies, state)
+                return func(msg, state)
         else:
             if else_func is not None:
-                return else_func(msg, replies, state)
+                return else_func(msg, state)
         return []
 
     f.__doc__ = '<$[if] {} if {} else {}>'.format(
@@ -137,18 +143,18 @@ def concat(*funcs: Optional[ReplyFunc], ignore_func: Optional[ReplyFunc] = ignor
     Пропускает все None среди функций"""
     funcs = [i for i in funcs if i is not None]
 
-    def f(msg: str, replies: Sequence[str], state: BotState.BotState) -> ReplyResult:
+    def f(msg: Message.Message, state: BotState.BotState) -> ReplyResult:
         l = len(funcs)
         n = 1
         for func in funcs:
-            cur = func(msg, replies, state)
+            cur = func(msg, state)
             if cur:
                 if isinstance(cur, str):
                     yield cur
                 else:
                     yield from cur
                 if n != l and ignore_func:
-                    yield ignore_func(msg, replies, state)
+                    yield ignore_func(msg, state)
             n += 1
 
     def get_doc():
