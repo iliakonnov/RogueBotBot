@@ -22,11 +22,14 @@ class NormalChannel(BaseChannel):
         self.channel_time = 0
         self.channel_bot = telepot.Bot(Config.bot_token)
 
-    def send_to_channel(self, message: Message.Message):
-        from_name = '`[{:%Y.%m.%d %H:%M:%S} UTC] {}:`\n'.format(
-            message.date, 'Бот' if message.is_from_bot else 'Я'
-        )
-        msg = '\n\n' + from_name + message.text
+    def send_to_channel(self, message: Message.Message = None):
+        if message is None:
+            msg = ''
+        else:
+            from_name = '`[{:%Y.%m.%d %H:%M:%S} UTC] {}:`\n'.format(
+                message.date, 'Бот' if message.is_from_bot else 'Я'
+            )
+            msg = '\n\n' + from_name + message.text
 
         t = time()
         if t - self.channel_time > Config.channel_delay:

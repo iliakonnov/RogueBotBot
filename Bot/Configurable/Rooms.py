@@ -69,7 +69,7 @@ rooms: Sequence[Room.Room] = [
     Room.Room("Вейпер",
               {'rooms/default/monster/hard/vaper.py': '3c505d676cc00a04103974e044a9997f58fdbc39'},
               ReplyUtils.battle),
-    Room.Room(("Вода", "_Вода_"),
+    Room.Room(("Вода", "_Вода_", "__Вода__"),
               {'rooms/default/usual/water.py': 'd5d7257b0d06f309ffd6c5e77a85ee0378032ee2'},
               ReplyUtils.concat(ReplyUtils.reply('Ты видишь сундук! Доплыть до него'), ReplyUtils.dice)),
     Room.Room("Волк-оборотень",

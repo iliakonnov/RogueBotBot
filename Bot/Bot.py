@@ -5,7 +5,7 @@ import os
 from time import time, sleep
 
 from Bot import BotState, ReplyFunc, telegrammer, controller, Controller, utils, Config, BuyItems, Rooms, Actions, \
-    ReplyUtils, SellItems, Constants, RoomsPriority, Room, notifier, logger
+    ReplyUtils, SellItems, Constants, RoomsPriority, Room, notifier, logger, channel
 
 
 def bot(state: BotState):
@@ -28,6 +28,7 @@ def bot(state: BotState):
                     paused = True
                 elif i == Controller.Command.INVENTORY:
                     state.current_items = load_inventory()
+            channel.send_to_channel(message=None)
             if paused:
                 continue
 
