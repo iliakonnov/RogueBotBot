@@ -8,6 +8,7 @@ from typing import Sequence, Optional
 
 from telethon import TelegramClient
 from telethon.tl import types as tl_types
+from telethon.extensions import markdown
 
 from Bot import channel, Config, Message, Constants
 
@@ -85,8 +86,9 @@ class Telegrammer(BaseTelegrammer):
             if isinstance(new, tl_types.UpdateNewMessage):
                 message = new.message
                 if message.from_id == Config.bot_id and message.message:
+                    text = markdown.unparse(message.message, message.entities)
                     msg = Message.Message(
-                        message.message,
+                        text,
                         list(self._parse_replies(message.reply_markup)),
                         message.date,
                         True
