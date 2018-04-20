@@ -69,7 +69,7 @@ rooms: Sequence[Room.Room] = [
     Room.Room("Вейпер",
               {'rooms/default/monster/hard/vaper.py': '3c505d676cc00a04103974e044a9997f58fdbc39'},
               ReplyUtils.battle),
-    Room.Room(("Вода", "_Вода_", "__Вода__"),
+    Room.Room(("Вода", "_Вода_"),
               {'rooms/default/usual/water.py': 'd5d7257b0d06f309ffd6c5e77a85ee0378032ee2'},
               ReplyUtils.concat(ReplyUtils.reply('Ты видишь сундук! Доплыть до него'), ReplyUtils.dice)),
     Room.Room("Волк-оборотень",
@@ -79,16 +79,19 @@ rooms: Sequence[Room.Room] = [
               {'rooms/default/usual/gideon.py': '7b9dc0d904656557f55dc5af0460f1118fead42c'},
               ReplyUtils.concat(
                   ReplyUtils.dice,
-                  ReplyUtils.get_reply(ReplyUtils.conditional(
-                      lambda msg, _: (
-                              'Что-о-о? Как ты это сделал?' in msg.text
-                              or 'От шока Гидеон выронил дневник из рук.' in msg.text
-                      ),
+                  ReplyUtils.get_reply(
                       ReplyUtils.concat(
-                          ReplyUtils.set_item('Книга тайн №2', 1),
-                          ReplyUtils.repeat_message
+                          ReplyUtils.conditional(
+                              lambda msg, _: (
+                                      'Что-о-о? Как ты это сделал?' in msg.text
+                                      or 'От шока Гидеон выронил дневник из рук.' in msg.text
+                              ),
+                              ReplyUtils.set_item('Книга тайн №2', 1),
+                          ),
+                          ReplyUtils.repeat_message,
+                          ignore_func=None
                       )
-                  )),
+                  ),
                   ignore_func=None
               )),
     Room.Room("Гном в красной шапке",
