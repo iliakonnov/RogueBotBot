@@ -40,7 +40,7 @@ class NormalChannel(BaseChannel):
             self.channel_bot.sendMessage(
                 Config.channel_id,
                 msg[0],
-                parse_mode='Markdown',
+                parse_mode='HTML',
                 disable_notification=True
             )
             self.messages = self.messages[msg[1]:]  # offset
@@ -55,10 +55,10 @@ class NormalChannel(BaseChannel):
         offset = 0
         m = self.messages[offset]
         while True:
-            from_name = '`[{:%Y.%m.%d %H:%M:%S} UTC] {}:`\n'.format(
+            from_name = '<code>[{:%Y.%m.%d %H:%M:%S} UTC] {}:</code>\n'.format(
                 m.date, 'Бот' if m.is_from_bot else 'Я'
             )
-            new_msg = msg + '\n\n' + from_name + m.text
+            new_msg = msg + '\n\n' + from_name + m.html
             new_msg.strip('\n')
             if len(new_msg) > 4096:
                 length_limited = True

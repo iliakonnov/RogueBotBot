@@ -8,9 +8,9 @@ from typing import Sequence, Optional
 
 from telethon import TelegramClient
 from telethon.tl import types as tl_types
-from telethon.extensions import markdown
 
 from Bot import channel, Config, Message, Constants
+from . import html_unparser
 
 
 class BaseTelegrammer(object, metaclass=abc.ABCMeta):
@@ -64,7 +64,7 @@ class Telegrammer(BaseTelegrammer):
         msg = self.send_to(Config.bot_id, content)
         if msg:
             channel.send_to_channel(
-                Message.Message(msg.message, [], msg.date, False)
+                Message.Message(msg.message, msg.message, [], msg.date, False)
             )
 
     def repeat_msg(self, message: Message.Message):
@@ -86,9 +86,10 @@ class Telegrammer(BaseTelegrammer):
             if isinstance(new, tl_types.UpdateNewMessage):
                 message = new.message
                 if message.from_id == Config.bot_id and message.message:
-                    text = markdown.unparse(message.message, message.entities)
+                    html = html_unparser.unparse(message.message, message.entities)
                     msg = Message.Message(
-                        text,
+                        message.message,
+                        html,
                         list(self._parse_replies(message.reply_markup)),
                         message.date,
                         True
@@ -153,7 +154,7 @@ class TestingTelegrammer(BaseTelegrammer):
             data: bytes = self.conn.recv(size)
             command = json.loads(data.decode('utf-8'))
         if command['action'] == 'message':
-            result = Message.Message(command['text'], command['replies'], datetime.now(), True)
+            result = Message.Message(command['text'], command['text'], command['replies'], datetime.now(), True)
             self._send({
                 'action': 'receive',
                 'text': result.text,
