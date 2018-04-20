@@ -2,7 +2,12 @@ from typing import Union, Callable, Sequence
 
 from . import utils  # None
 from . import Constants  # None
-from .Configurable import Config  # None
+
+try:
+    from .Configurable import Config  # None
+except ImportError:
+    raise Exception("Не удалось найти Configurable/Config.py")
+
 from .Configurable import RoomsPriority  # None
 from .Configurable import WeaponsPriority  # None
 from .Configurable import BuyItems  # Constants

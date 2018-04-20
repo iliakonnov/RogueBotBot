@@ -4,6 +4,7 @@ bot_state.json
 RogBotBot.log
 session.session
 tester/
+Bot/Configurable/Config.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
