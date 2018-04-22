@@ -63,6 +63,7 @@ def battle(msg: Message.Message, __: BotState.BotState) -> ReplyResult:
     """Битва с кем либо"""
 
     work = True
+    first = True
     while work:
         found = False
         for repl in msg.replies:
@@ -73,11 +74,14 @@ def battle(msg: Message.Message, __: BotState.BotState) -> ReplyResult:
         if not found:
             if '👊 Ударить рукой' in msg.replies:
                 yield '👊 Ударить рукой'
-            else:
+            elif not first:
                 work = False
                 telegrammer.repeat_msg(msg)
         if work:
-            msg = telegrammer.get_message()
+            new_msg = telegrammer.get_message(timeout=Config.timeout)
+            if new_msg is not None:
+                msg = new_msg
+        first = False
 
 
 def reply(out: ReplyResult, delay=0) -> ReplyFunc:
