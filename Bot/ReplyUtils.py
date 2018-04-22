@@ -61,12 +61,23 @@ def repeat_message(msg: Message.Message, _: BotState.BotState) -> ReplyResult:
 def battle(msg: Message.Message, __: BotState.BotState) -> ReplyResult:
     """<#[battle]>"""
     """Битва с кем либо"""
-    for repl in msg.replies:
-        for weap in WeaponsPriority.weapons:
-            if repl.startswith('➰ Использовать: {}'.format(weap)):
-                return repl
-    if '👊 Ударить рукой' in msg.replies:
-        return '👊 Ударить рукой'
+
+    work = True
+    while work:
+        found = False
+        for repl in msg.replies:
+            for weap in WeaponsPriority.weapons:
+                if repl.startswith('➰ Использовать: {}'.format(weap)):
+                    found = True
+                    yield repl
+        if not found:
+            if '👊 Ударить рукой' in msg.replies:
+                yield '👊 Ударить рукой'
+            else:
+                work = False
+                telegrammer.repeat_msg(msg)
+        if work:
+            msg = telegrammer.get_message()
 
 
 def reply(out: ReplyResult, delay=0) -> ReplyFunc:

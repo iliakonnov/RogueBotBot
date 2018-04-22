@@ -30,7 +30,7 @@ bot_id = 253526115
 # Для прокси требуется установить pysocks.
 proxy_enabled = True  # Включить ли прокси
 # Адрес этого прокси в формате {http,socks4,socks5}://[login:pass@]host:port, либо ссылка tg:// или {http,https}://t.me/
-proxy = 'https://t.me/socks?server=example.como&port=1234&user=username&pass=password'
+proxy = 'https://t.me/socks?server=example.com&port=1234&user=username&pass=password'
 
 test = False  # Будет принимать сообщения не из телеграма, а слушать порт
 test_host = '127.0.0.1'
