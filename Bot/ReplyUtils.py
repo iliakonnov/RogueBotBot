@@ -67,7 +67,7 @@ def battle(msg: Message.Message, __: BotState.BotState) -> ReplyResult:
         found = False
         for repl in msg.replies:
             for weap in WeaponsPriority.weapons:
-                if repl.startswith('➰ Использовать: {}'.format(weap)):
+                if not found and repl.startswith('➰ Использовать: {}'.format(weap)):
                     found = True
                     yield repl
         if not found:
